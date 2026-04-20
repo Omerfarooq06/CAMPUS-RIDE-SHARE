@@ -42,7 +42,31 @@ Campus Ride Share helps students coordinate shared travel to common destinations
 | Tools       | VS Code, MySQL Workbench, Postman, Git   |
 
 ## 📁 Project Structure
-
+campus-rideshare/
+├── backend/
+│ ├── config/db.js # Database connection pool
+│ ├── middleware/auth.js # JWT authentication middleware
+│ ├── routes/
+│ │ ├── auth.js # Register / Login endpoints
+│ │ ├── rides.js # Ride CRUD operations
+│ │ ├── users.js # Dashboard data
+│ │ └── admin.js # Admin management
+│ ├── .env # Environment variables
+│ ├── package.json
+│ └── server.js
+├── frontend/
+│ ├── css/style.css # Red & white theme
+│ ├── images/ # Logo assets
+│ ├── index.html # Homepage
+│ └── pages/ # All other HTML pages
+│ ├── login.html
+│ ├── register.html
+│ ├── rides.html
+│ ├── ride-detail.html
+│ ├── post-ride.html
+│ ├── dashboard.html
+│ └── admin.html
+└── database.sql
 ## 🚀 Getting Started
 
 ### Prerequisites
