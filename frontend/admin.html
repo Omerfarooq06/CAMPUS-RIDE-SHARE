@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">🚗 <span>Campus</span>Ride</div>
+        <div class="nav-links" id="nav-links"></div>
+    </nav>
+
+    <div class="container">
+        <div id="admin-content">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        function getCurrentUser() {
+            const user = localStorage.getItem('crs_user');
+            return user ? JSON.parse(user) : null;
+        }
+        
+        function getToken() {
+            return localStorage.getItem('crs_token');
+        }
+        
+        function checkAdmin() {
+            const token = getToken();
+            const user = getCurrentUser();
+            
+            if (!token || !user || user.role !== 'admin') {
+                window.location.href = 'index (1).html';
+                return false;
+            }
+            return true;
+        }
+        
+        function updateNav() {
+            const token = getToken();
+            const user = getCurrentUser();
+            const navLinks = document.getElementById('nav-links');
+            
+            if (token && user) {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='post-ride.html'">Post Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='dashboard.html'">Dashboard</button>
+                    ${user.role === 'admin' ? '<button class="nav-btn" onclick="window.location.href=\'admin.html\'">Admin</button>' : ''}
+                    <div class="nav-user">
+                        <div class="avatar">${user.name[0].toUpperCase()}</div>
+                        <span style="font-size:0.85rem">${user.name.split(' ')[0]}</span>
+                        <button class="nav-btn" onclick="logout()" style="color:var(--danger)">Logout</button>
+                    </div>
+                `;
+            } else {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+                `;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('crs_token');
+            localStorage.removeItem('crs_user');
+            window.location.href = 'index.html';
+        }
+        
+        async function loadAdmin() {
+            const token = getToken();
+            
+            try {
+                // Load stats
+                const statsRes = await fetch(`${API}/admin/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const stats = await statsRes.json();
+                
+                document.getElementById('admin-content').innerHTML = `
+                    <div class="section-header">
+                        <div class="section-title">⚙️ Admin Panel</div>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_users || 0}</div>
+                            <div class="stat-label">Students</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_rides || 0}</div>
+                            <div class="stat-label">Total Rides</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.active_rides || 0}</div>
+                            <div class="stat-label">Active Rides</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_bookings || 0}</div>
+                            <div class="stat-label">Bookings</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="tabs" style="margin-bottom:0;margin:-24px -24px 24px">
+                            <button class="tab-btn active" onclick="loadUsers()">Users</button>
+                            <button class="tab-btn" onclick="loadRides()">Rides</button>
+                        </div>
+                        <div id="admin-tab-content">
+                            <div class="loading"><div class="spinner"></div></div>
+                        </div>
+                    </div>
+                `;
+                
+                loadUsers();
+            } catch (error) {
+                document.getElementById('admin-content').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">⚠️</div>
+                        <h3>Failed to load admin panel</h3>
+                        <p>Make sure backend is running</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadUsers() {
+            const token = getToken();
+            const content = document.getElementById('admin-tab-content');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            
+            try {
+                const res = await fetch(`${API}/admin/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const users = await res.json();
+                
+                content.innerHTML = `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Name</th><th>Univ ID</th><th>Email</th><th>Phone</th><th>Joined</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                ${users.map(user => `
+                                    <tr>
+                                        <td>${user.name}</td>
+                                        <td>${user.university_id}</td>
+                                        <td>${user.email}</td>
+                                        <td>${user.phone}</td>
+                                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                        <td><button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Delete</button></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                content.innerHTML = '<div class="empty-state">Failed to load users</div>';
+            }
+        }
+        
+        async function loadRides() {
+            const token = getToken();
+            const content = document.getElementById('admin-tab-content');
+            content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            
+            try {
+                const res = await fetch(`${API}/admin/rides`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const rides = await res.json();
+                
+                content.innerHTML = `
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Route</th><th>Driver</th><th>Date</th><th>Seats</th><th>Cost</th><th>Status</th><th>Bookings</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                ${rides.map(ride => `
+                                    <tr>
+                                        <td>${ride.starting_location} → ${ride.destination}</td>
+                                        <td>${ride.driver_name}</td>
+                                        <td>${new Date(ride.ride_date).toLocaleDateString()}</td>
+                                        <td>${ride.seats_available}/${ride.seats_total}</td>
+                                        <td>₹${ride.estimated_cost}</td>
+                                        <td><span class="tag ${ride.status === 'active' ? 'tag-green' : 'tag-red'}">${ride.status}</span></td>
+                                        <td>${ride.bookings_count || 0}</td>
+                                        <td><button class="btn btn-danger btn-sm" onclick="deleteRide(${ride.id})">Delete</button></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                content.innerHTML = '<div class="empty-state">Failed to load rides</div>';
+            }
+        }
+        
+        async function deleteUser(userId) {
+            if (!confirm('Delete this user? This action cannot be undone.')) return;
+            
+            const token = getToken();
+            try {
+                const res = await fetch(`${API}/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    loadUsers();
+                } else {
+                    alert('Failed to delete user');
+                }
+            } catch (error) {
+                alert('Error deleting user');
+            }
+        }
+        
+        async function deleteRide(rideId) {
+            if (!confirm('Delete this ride?')) return;
+            
+            const token = getToken();
+            try {
+                const res = await fetch(`${API}/admin/rides/${rideId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    loadRides();
+                } else {
+                    alert('Failed to delete ride');
+                }
+            } catch (error) {
+                alert('Error deleting ride');
+            }
+        }
+        
+        window.loadUsers = loadUsers;
+        window.loadRides = loadRides;
+        window.deleteUser = deleteUser;
+        window.deleteRide = deleteRide;
+        
+        if (checkAdmin()) {
+            updateNav();
+            loadAdmin();
+        }
+    </script>
+</body>
+</html>

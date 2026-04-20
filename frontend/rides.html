@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Rides - NMIMS Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">
+            <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 45px; width: auto; margin-right: 10px;">
+            <span>Campus</span>Ride
+        </div>
+        <div class="nav-links" id="nav-links"></div>
+    </nav>
+
+    <div class="container">
+        <div class="section-header">
+            <div class="section-title">Find a Ride</div>
+        </div>
+        
+        <form class="search-bar" onsubmit="searchRides(event)">
+            <div class="form-group">
+                <label class="form-label">Destination</label>
+                <input type="text" id="destination" class="form-input" placeholder="Airport, Railway Station...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" id="date" class="form-input">
+            </div>
+            <button type="submit" class="btn btn-primary">Search</button>
+            <button type="button" class="btn btn-secondary" onclick="clearSearch()">Clear</button>
+        </form>
+        
+        <div id="rides-list" class="card-grid">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        function updateNav() {
+            const token = localStorage.getItem('crs_token');
+            const user = JSON.parse(localStorage.getItem('crs_user') || 'null');
+            const navLinks = document.getElementById('nav-links');
+            
+            if (token && user) {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='post-ride.html'">Post Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='dashboard.html'">Dashboard</button>
+                    ${user.role === 'admin' ? '<button class="nav-btn" onclick="window.location.href=\'admin.html\'">Admin</button>' : ''}
+                    <div class="nav-user">
+                        <div class="avatar">${user.name[0].toUpperCase()}</div>
+                        <span style="font-size:0.85rem">${user.name.split(' ')[0]}</span>
+                        <button class="nav-btn" onclick="logout()" style="color:var(--danger)">Logout</button>
+                    </div>
+                `;
+            } else {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+                `;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('crs_token');
+            localStorage.removeItem('crs_user');
+            window.location.href = 'index.html';
+        }
+        
+        async function loadRides(destination = '', date = '') {
+            const container = document.getElementById('rides-list');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            
+            try {
+                const params = new URLSearchParams();
+                if (destination) params.append('destination', destination);
+                if (date) params.append('date', date);
+                
+                const url = `${API}/rides/search${params.toString() ? '?' + params.toString() : ''}`;
+                const res = await fetch(url);
+                const rides = await res.json();
+                
+                if (!rides.length) {
+                    container.innerHTML = '<div class="empty-state"><div class="icon">🚗</div><h3>No rides found</h3><p>Try a different search or post a ride!</p></div>';
+                    return;
+                }
+                
+                container.innerHTML = rides.map(ride => `
+                    <div class="card" onclick="window.location.href='ride-detail.html?id=${ride.id}'">
+                        <div class="ride-card-header">
+                            <div class="ride-route">
+                                <span>${ride.starting_location}</span>
+                                <span class="route-arrow">→</span>
+                                <span>${ride.destination}</span>
+                            </div>
+                            <span class="tag ${ride.seats_available > 0 ? 'tag-green' : 'tag-red'}">${ride.seats_available} seats</span>
+                        </div>
+                        <div class="ride-meta">
+                            <span class="ride-meta-item">📅 ${new Date(ride.ride_date).toLocaleDateString()}</span>
+                            <span class="ride-meta-item">🕐 ${ride.ride_time?.slice(0,5)}</span>
+                            <span class="ride-meta-item">💰 ₹${ride.estimated_cost}</span>
+                        </div>
+                        <div class="driver-info">
+                            <div class="avatar">${ride.driver_name[0]}</div>
+                            <div>
+                                <div style="font-weight:500">${ride.driver_name}</div>
+                                <div style="color:var(--text-muted);font-size:0.8rem">📞 ${ride.driver_phone}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><h3>Failed to load rides</h3><p>Make sure backend is running</p></div>';
+            }
+        }
+        
+        function searchRides(event) {
+            event.preventDefault();
+            const destination = document.getElementById('destination').value;
+            const date = document.getElementById('date').value;
+            loadRides(destination, date);
+        }
+        
+        function clearSearch() {
+            document.getElementById('destination').value = '';
+            document.getElementById('date').value = '';
+            loadRides();
+        }
+        
+        // Set min date
+        document.getElementById('date').min = new Date().toISOString().split('T')[0];
+        
+        updateNav();
+        loadRides();
+    </script>
+</body>
+</html>

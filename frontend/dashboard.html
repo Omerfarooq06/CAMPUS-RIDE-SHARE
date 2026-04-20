@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - NMIMS Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">
+            <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 45px; width: auto; margin-right: 10px;">
+            <span>Campus</span>Ride
+        </div>
+        <div class="nav-links" id="nav-links"></div>
+    </nav>
+
+    <div class="container">
+        <div id="dashboard-content">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+
+    <footer style="background: var(--surface); border-top: 1px solid var(--border); padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 40px;">
+        <p>© 2026 SVKM's NMIMS Campus Ride Share | Connecting Students, Sharing Rides</p>
+    </footer>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        function getCurrentUser() {
+            const user = localStorage.getItem('crs_user');
+            return user ? JSON.parse(user) : null;
+        }
+        
+        function getToken() {
+            return localStorage.getItem('crs_token');
+        }
+        
+        function checkAuth() {
+            const token = getToken();
+            if (!token) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+        
+        function updateNav() {
+            const token = getToken();
+            const user = getCurrentUser();
+            const navLinks = document.getElementById('nav-links');
+            
+            if (token && user) {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='post-ride.html'">Post Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='dashboard.html'">Dashboard</button>
+                    ${user.role === 'admin' ? '<button class="nav-btn" onclick="window.location.href=\'admin.html\'">Admin</button>' : ''}
+                    <div class="nav-user">
+                        <div class="avatar">${user.name[0].toUpperCase()}</div>
+                        <span style="font-size:0.85rem">${user.name.split(' ')[0]}</span>
+                        <button class="nav-btn" onclick="logout()" style="color:var(--danger)">Logout</button>
+                    </div>
+                `;
+            } else {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+                `;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('crs_token');
+            localStorage.removeItem('crs_user');
+            window.location.href = 'index.html';
+        }
+        
+        async function loadDashboard() {
+            const token = getToken();
+            const user = getCurrentUser();
+            
+            if (!token || !user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API}/users/dashboard`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await res.json();
+                
+                document.getElementById('dashboard-content').innerHTML = `
+                    <div style="display:flex;align-items:center;gap:16px;margin-bottom:32px">
+                        <div class="avatar" style="width:52px;height:52px;font-size:1.2rem">${user.name[0].toUpperCase()}</div>
+                        <div>
+                            <div style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700">${user.name}</div>
+                            <div style="color:var(--text-muted);font-size:0.9rem">${user.email}</div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="window.location.href='post-ride.html'">+ Post Ride</button>
+                    </div>
+                    
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="showTab('posted')">My Posted Rides</button>
+                        <button class="tab-btn" onclick="showTab('joined')">Rides Joined</button>
+                    </div>
+                    
+                    <div id="posted-rides">
+                        ${renderPostedRides(data.posted)}
+                    </div>
+                    
+                    <div id="joined-rides" style="display:none">
+                        ${renderJoinedRides(data.joined)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('dashboard-content').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">⚠️</div>
+                        <h3>Failed to load dashboard</h3>
+                        <p>Make sure backend is running</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderPostedRides(rides) {
+            if (!rides.length) {
+                return '<div class="empty-state"><div class="icon">🚗</div><h3>No rides posted</h3><p>Click "Post Ride" to share a ride</p></div>';
+            }
+            
+            return `<div class="card-grid">
+                ${rides.map(ride => `
+                    <div class="card">
+                        <div class="ride-card-header">
+                            <div class="ride-route">${ride.starting_location} → ${ride.destination}</div>
+                            <span class="tag ${ride.status === 'active' ? 'tag-green' : 'tag-red'}">${ride.status}</span>
+                        </div>
+                        <div class="ride-meta">
+                            <span class="ride-meta-item">📅 ${new Date(ride.ride_date).toLocaleDateString()}</span>
+                            <span class="ride-meta-item">👥 ${ride.passenger_count || 0} joined</span>
+                            <span class="ride-meta-item">💰 ₹${ride.estimated_cost}</span>
+                        </div>
+                        ${ride.status === 'active' ? `<button class="btn btn-danger btn-sm" onclick="cancelRide(${ride.id})">Cancel Ride</button>` : ''}
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+        
+        function renderJoinedRides(rides) {
+            if (!rides.length) {
+                return '<div class="empty-state"><div class="icon">🎫</div><h3>No rides joined</h3><p>Browse rides and join one!</p></div>';
+            }
+            
+            return `<div class="card-grid">
+                ${rides.map(ride => `
+                    <div class="card" onclick="window.location.href='ride-detail.html?id=${ride.id}'" style="cursor:pointer">
+                        <div class="ride-card-header">
+                            <div class="ride-route">${ride.starting_location} → ${ride.destination}</div>
+                            <span class="tag tag-blue">${ride.booking_status}</span>
+                        </div>
+                        <div class="ride-meta">
+                            <span class="ride-meta-item">📅 ${new Date(ride.ride_date).toLocaleDateString()}</span>
+                            <span class="ride-meta-item">🚗 ${ride.driver_name}</span>
+                            <span class="ride-meta-item">📞 ${ride.driver_phone}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+        
+        async function cancelRide(rideId) {
+            if (!confirm('Cancel this ride? All passengers will be affected.')) return;
+            
+            const token = getToken();
+            try {
+                const res = await fetch(`${API}/rides/${rideId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (res.ok) {
+                    loadDashboard();
+                } else {
+                    alert('Failed to cancel ride');
+                }
+            } catch (error) {
+                alert('Error cancelling ride');
+            }
+        }
+        
+        function showTab(tab) {
+            const postedDiv = document.getElementById('posted-rides');
+            const joinedDiv = document.getElementById('joined-rides');
+            const btns = document.querySelectorAll('.tab-btn');
+            
+            btns.forEach(btn => btn.classList.remove('active'));
+            
+            if (tab === 'posted') {
+                postedDiv.style.display = 'block';
+                joinedDiv.style.display = 'none';
+                btns[0].classList.add('active');
+            } else {
+                postedDiv.style.display = 'none';
+                joinedDiv.style.display = 'block';
+                btns[1].classList.add('active');
+            }
+        }
+        
+        window.showTab = showTab;
+        window.cancelRide = cancelRide;
+        
+        if (checkAuth()) {
+            updateNav();
+            loadDashboard();
+        }
+    </script>
+</body>
+</html>

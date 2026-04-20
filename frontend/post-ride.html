@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post a Ride - NMIMS Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">
+            <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 45px; width: auto; margin-right: 10px;">
+            <span>Campus</span>Ride
+        </div>
+        <div class="nav-links" id="nav-links"></div>
+    </nav>
+
+    <div class="container" style="max-width: 600px">
+        <div class="section-header">
+            <div class="section-title">Post a Ride</div>
+        </div>
+        
+        <div class="card">
+            <div class="alert" id="post-alert"></div>
+            <form onsubmit="postRide(event)">
+                <div class="form-group">
+                    <label class="form-label">Starting Location</label>
+                    <input type="text" id="starting_location" class="form-input" placeholder="e.g. Main Campus Gate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Destination</label>
+                    <input type="text" id="destination" class="form-input" placeholder="e.g. Mumbai Airport" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" id="ride_date" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Time</label>
+                        <input type="time" id="ride_time" class="form-input" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Seats Available</label>
+                        <input type="number" id="seats_available" class="form-input" min="1" max="10" value="3" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total Cab Cost (₹)</label>
+                        <input type="number" id="estimated_cost" class="form-input" min="1" placeholder="800" required>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-full">🚗 Post Ride</button>
+            </form>
+        </div>
+    </div>
+
+    <footer style="background: var(--surface); border-top: 1px solid var(--border); padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 40px;">
+        <p>© 2026 SVKM's NMIMS Campus Ride Share | Connecting Students, Sharing Rides</p>
+    </footer>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        function checkAuth() {
+            const token = localStorage.getItem('crs_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            return true;
+        }
+        
+        function updateNav() {
+            const token = localStorage.getItem('crs_token');
+            const user = JSON.parse(localStorage.getItem('crs_user') || 'null');
+            const navLinks = document.getElementById('nav-links');
+            
+            if (token && user) {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='post-ride.html'">Post Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='dashboard.html'">Dashboard</button>
+                    ${user.role === 'admin' ? '<button class="nav-btn" onclick="window.location.href=\'admin.html\'">Admin</button>' : ''}
+                    <div class="nav-user">
+                        <div class="avatar">${user.name[0].toUpperCase()}</div>
+                        <span style="font-size:0.85rem">${user.name.split(' ')[0]}</span>
+                        <button class="nav-btn" onclick="logout()" style="color:var(--danger)">Logout</button>
+                    </div>
+                `;
+            } else {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+                `;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('crs_token');
+            localStorage.removeItem('crs_user');
+            window.location.href = 'index.html';
+        }
+        
+        async function postRide(event) {
+            event.preventDefault();
+            
+            const token = localStorage.getItem('crs_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            const rideData = {
+                starting_location: document.getElementById('starting_location').value,
+                destination: document.getElementById('destination').value,
+                ride_date: document.getElementById('ride_date').value,
+                ride_time: document.getElementById('ride_time').value,
+                seats_available: parseInt(document.getElementById('seats_available').value),
+                estimated_cost: parseFloat(document.getElementById('estimated_cost').value)
+            };
+            
+            const alertDiv = document.getElementById('post-alert');
+            alertDiv.classList.remove('show');
+            
+            try {
+                const res = await fetch(`${API}/rides`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(rideData)
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    alertDiv.textContent = data.message;
+                    alertDiv.className = 'alert alert-error show';
+                    return;
+                }
+                
+                alertDiv.textContent = 'Ride posted successfully!';
+                alertDiv.className = 'alert alert-success show';
+                
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1500);
+            } catch (error) {
+                alertDiv.textContent = 'Error posting ride. Make sure backend is running.';
+                alertDiv.className = 'alert alert-error show';
+            }
+        }
+        
+        // Set min date
+        document.getElementById('ride_date').min = new Date().toISOString().split('T')[0];
+        
+        if (checkAuth()) {
+            updateNav();
+        }
+    </script>
+</body>
+</html>

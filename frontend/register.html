@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - NMIMS Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">
+            <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 45px; width: auto; margin-right: 10px;">
+            <span>Campus</span>Ride
+        </div>
+        <div class="nav-links">
+            <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+            <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+            <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+        </div>
+    </nav>
+
+    <div class="auth-page">
+        <div class="auth-card" style="max-width: 480px">
+            <div class="auth-logo">
+                <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 60px; margin-bottom: 15px;" onerror="this.style.display='none'">
+                <h2 style="color: #dc2626;">NMIMS CampusRide</h2>
+                <p>Create your student account</p>
+            </div>
+            <div class="alert" id="register-alert"></div>
+            <form onsubmit="register(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="name" class="form-input" placeholder="Rahul Sharma" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">University ID</label>
+                        <input type="text" id="university_id" class="form-input" placeholder="21CS001" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="email" class="form-input" placeholder="you@nmims.edu" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phone</label>
+                    <input type="tel" id="phone" class="form-input" placeholder="9876543210" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Min 6 characters" minlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+            </form>
+            <div class="auth-switch">Already registered? <a href="login.html">Sign In</a></div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        async function register(event) {
+            event.preventDefault();
+            
+            const userData = {
+                name: document.getElementById('name').value,
+                university_id: document.getElementById('university_id').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                password: document.getElementById('password').value
+            };
+            
+            const alertDiv = document.getElementById('register-alert');
+            alertDiv.classList.remove('show');
+            
+            try {
+                const res = await fetch(`${API}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    alertDiv.textContent = data.message;
+                    alertDiv.className = 'alert alert-error show';
+                    return;
+                }
+                
+                alertDiv.textContent = 'Registration successful! Redirecting to login...';
+                alertDiv.className = 'alert alert-success show';
+                
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 1500);
+            } catch (error) {
+                alertDiv.textContent = 'Connection error. Make sure backend is running.';
+                alertDiv.className = 'alert alert-error show';
+            }
+        }
+    </script>
+</body>
+</html>

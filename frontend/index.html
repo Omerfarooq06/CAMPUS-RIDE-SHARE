@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NMIMS Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 45px; width: auto;" onerror="this.style.display='none'; this.nextSibling.style.display='flex'">
+                <div style="display: none; background: #dc2626; width: 45px; height: 45px; border-radius: 50%; align-items: center; justify-content: center; font-size: 1.3rem;">🏛️</div>
+                <div>
+                    <div style="font-weight: 800; font-size: 1.1rem;"><span style="color: #1f2937;">Campus</span> <span style="color: #dc2626;">Ride</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+            <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+            <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+            <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 80px; width: auto; background: rgba(255,255,255,0.2);" onerror="this.style.display='none'; this.nextSibling.style.display='flex'">
+            <div style="display: none; background: rgba(255,255,255,0.2); width: 80px; height: 80px; border-radius: 50%; align-items: center; justify-content: center; font-size: 2.5rem;">🏛️</div>
+        </div>
+        <h1>NMIMS Campus Ride Share<br><em>Split rides, save money</em></h1>
+        <p>Connect with fellow NMIMS students heading the same way. Share rides from campus to town, airport, railway station, and beyond.</p>
+        <div class="hero-btns">
+            <button class="btn btn-primary" onclick="window.location.href='rides.html'">Find a Ride 🔍</button>
+            <button class="btn btn-outline" onclick="window.location.href='register.html'">Post a Ride 🚗</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value">🚗</div><div class="stat-label">Post rides from campus</div></div>
+            <div class="stat-card"><div class="stat-value">💰</div><div class="stat-label">Split costs automatically</div></div>
+            <div class="stat-card"><div class="stat-value">🔒</div><div class="stat-label">NMIMS verified students</div></div>
+            <div class="stat-card"><div class="stat-value">📱</div><div class="stat-label">Contact drivers directly</div></div>
+        </div>
+        <div class="section-header">
+            <div class="section-title">Recent Rides</div>
+        </div>
+        <div id="recent-rides" class="card-grid">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2026 SVKM's NMIMS Campus Ride Share | Connecting Students, Sharing Rides</p>
+    </footer>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        async function loadRecentRides() {
+            try {
+                const res = await fetch(`${API}/rides`);
+                const rides = await res.json();
+                const container = document.getElementById('recent-rides');
+                
+                if (!rides.length) {
+                    container.innerHTML = '<div class="empty-state"><div class="icon">🚗</div><h3>No rides yet</h3><p>Be the first to post a ride!</p></div>';
+                    return;
+                }
+                
+                container.innerHTML = rides.slice(0,6).map(ride => `
+                    <div class="card" onclick="window.location.href='ride-detail.html?id=${ride.id}'">
+                        <div class="ride-card-header">
+                            <div class="ride-route">
+                                <span>${ride.starting_location}</span>
+                                <span class="route-arrow">→</span>
+                                <span>${ride.destination}</span>
+                            </div>
+                            <span class="tag tag-green">${ride.seats_available} seats</span>
+                        </div>
+                        <div class="ride-meta">
+                            <span class="ride-meta-item">📅 ${new Date(ride.ride_date).toLocaleDateString()}</span>
+                            <span class="ride-meta-item">🕐 ${ride.ride_time?.slice(0,5)}</span>
+                            <span class="ride-meta-item">💰 ₹${ride.estimated_cost}</span>
+                        </div>
+                        <div class="driver-info">
+                            <div class="avatar">${ride.driver_name[0]}</div>
+                            <div>${ride.driver_name}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">🔌</div><h3>Backend not connected</h3><p>Start the server to see rides</p></div>';
+            }
+        }
+        
+        loadRecentRides();
+    </script>
+</body>
+</html>

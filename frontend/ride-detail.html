@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride Details - NMIMS Campus Ride Share</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand" onclick="window.location.href='index.html'">
+            <img src="images/nmims-logo.jpg" alt="NMIMS Logo" style="height: 45px; width: auto; margin-right: 10px;">
+            <span>Campus</span>Ride
+        </div>
+        <div class="nav-links" id="nav-links"></div>
+    </nav>
+
+    <div id="detail-content" class="container">
+        <div class="loading"><div class="spinner"></div></div>
+    </div>
+
+    <footer style="background: var(--surface); border-top: 1px solid var(--border); padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 40px;">
+        <p>© 2026 SVKM's NMIMS Campus Ride Share | Connecting Students, Sharing Rides</p>
+    </footer>
+
+    <script>
+        const API = 'http://localhost:5000/api';
+        
+        function getCurrentUser() {
+            const user = localStorage.getItem('crs_user');
+            return user ? JSON.parse(user) : null;
+        }
+        
+        function getToken() {
+            return localStorage.getItem('crs_token');
+        }
+        
+        function updateNav() {
+            const token = getToken();
+            const user = getCurrentUser();
+            const navLinks = document.getElementById('nav-links');
+            
+            if (token && user) {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='post-ride.html'">Post Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='dashboard.html'">Dashboard</button>
+                    ${user.role === 'admin' ? '<button class="nav-btn" onclick="window.location.href=\'admin.html\'">Admin</button>' : ''}
+                    <div class="nav-user">
+                        <div class="avatar">${user.name[0].toUpperCase()}</div>
+                        <span style="font-size:0.85rem">${user.name.split(' ')[0]}</span>
+                        <button class="nav-btn" onclick="logout()" style="color:var(--danger)">Logout</button>
+                    </div>
+                `;
+            } else {
+                navLinks.innerHTML = `
+                    <button class="nav-btn" onclick="window.location.href='rides.html'">Find Ride</button>
+                    <button class="nav-btn" onclick="window.location.href='login.html'">Login</button>
+                    <button class="btn btn-primary btn-sm" onclick="window.location.href='register.html'">Sign Up</button>
+                `;
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('crs_token');
+            localStorage.removeItem('crs_user');
+            window.location.href = 'index.html';
+        }
+        
+        async function loadRideDetail() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rideId = urlParams.get('id');
+            
+            if (!rideId) {
+                window.location.href = 'rides.html';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API}/rides/${rideId}`);
+                const ride = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(ride.message);
+                }
+                
+                const currentUser = getCurrentUser();
+                const date = new Date(ride.ride_date);
+                const dateStr = date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+                const passengers = ride.bookings || [];
+                const totalPeople = passengers.length + 1;
+                const costPerPerson = (ride.estimated_cost / totalPeople).toFixed(0);
+                
+                const isDriver = currentUser && currentUser.id === ride.driver_id;
+                const isPassenger = currentUser && passengers.some(p => p.passenger_id === currentUser.id);
+                
+                document.getElementById('detail-content').innerHTML = `
+                    <div style="max-width:900px;margin:0 auto">
+                        <button class="btn btn-secondary btn-sm" onclick="window.location.href='rides.html'" style="margin-bottom:20px">← Back to Rides</button>
+                        
+                        <div class="detail-grid">
+                            <div>
+                                <div class="card" style="margin-bottom:16px">
+                                    <div class="detail-route" style="margin-bottom:20px;font-size:1.5rem;font-weight:700">
+                                        <span>${ride.starting_location}</span>
+                                        <span class="route-arrow">→</span>
+                                        <span>${ride.destination}</span>
+                                    </div>
+                                    <div class="ride-meta">
+                                        <span class="ride-meta-item">📅 ${dateStr}</span>
+                                        <span class="ride-meta-item">🕐 ${ride.ride_time?.slice(0,5)}</span>
+                                        <span class="ride-meta-item">💺 ${ride.seats_available} seats left</span>
+                                    </div>
+                                    <div class="driver-info">
+                                        <div class="avatar" style="width:44px;height:44px;font-size:1rem">${ride.driver_name[0]}</div>
+                                        <div>
+                                            <div style="font-weight:600">${ride.driver_name}</div>
+                                            <div style="color:var(--text-muted);font-size:0.85rem">📞 ${ride.driver_phone}</div>
+                                            <div style="color:var(--text-muted);font-size:0.85rem">✉️ ${ride.driver_email}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                ${passengers.length ? `
+                                <div class="card">
+                                    <h3 style="margin-bottom:16px;font-size:1rem">Passengers (${passengers.length})</h3>
+                                    ${passengers.map(p => `
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                                            <div class="avatar" style="width:32px;height:32px;font-size:0.75rem">${p.passenger_name[0]}</div>
+                                            <span style="font-size:0.9rem">${p.passenger_name}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div>
+                                <div class="cost-split" style="margin-bottom:16px">
+                                    <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:4px">Total Cost</p>
+                                    <div style="font-size:1.8rem;font-weight:800;color:var(--text)">₹${ride.estimated_cost}</div>
+                                    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+                                    <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:4px">Per Person (${totalPeople} people)</p>
+                                    <div class="big-cost">₹${costPerPerson}</div>
+                                </div>
+                                
+                                ${!currentUser ? 
+                                    `<button class="btn btn-primary btn-full" onclick="window.location.href='login.html'">Login to Join</button>` :
+                                    isDriver ? 
+                                    `<div class="tag tag-blue" style="display:block;text-align:center;padding:12px">You posted this ride</div>` :
+                                    isPassenger ? 
+                                    `<button class="btn btn-danger btn-full" onclick="leaveRide(${ride.id})">Leave Ride</button>` :
+                                    ride.seats_available > 0 ? 
+                                    `<button class="btn btn-primary btn-full" onclick="joinRide(${ride.id})">Join Ride</button>` :
+                                    `<button class="btn btn-secondary btn-full" disabled>Ride Full</button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('detail-content').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">⚠️</div>
+                        <h3>Ride not found</h3>
+                        <button class="btn btn-primary" onclick="window.location.href='rides.html'">Back to Rides</button>
+                    </div>
+                `;
+            }
+        }
+        
+        async function joinRide(rideId) {
+            const token = getToken();
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API}/rides/${rideId}/join`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    alert(data.message);
+                    return;
+                }
+                
+                loadRideDetail();
+            } catch (error) {
+                alert('Error joining ride');
+            }
+        }
+        
+        async function leaveRide(rideId) {
+            if (!confirm('Are you sure you want to leave this ride?')) return;
+            
+            const token = getToken();
+            try {
+                const res = await fetch(`${API}/rides/${rideId}/leave`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    alert(data.message);
+                    return;
+                }
+                
+                loadRideDetail();
+            } catch (error) {
+                alert('Error leaving ride');
+            }
+        }
+        
+        updateNav();
+        loadRideDetail();
+    </script>
+</body>
+</html>
